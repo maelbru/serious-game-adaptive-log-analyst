@@ -68,31 +68,78 @@ const mockData = {
   ]
 }
 
-// Adaptive Difficulty System
+// ============================================================================
+// SISTEMA DI DIFFICOLTÀ ADATTIVA
+// ============================================================================
+
+/**
+ * Oggetto che gestisce l'adattamento dinamico della difficoltà
+ * Il gioco diventa più difficile man mano che il giocatore migliora
+ */
 const AdaptiveDifficulty = {
+  /**
+   * Calcola il prossimo livello di difficoltà basandosi sulle performance
+   * @param {number} score - Punteggio totale del giocatore
+   * @param {number} streak - Serie di risposte corrette consecutive
+   * @param {number} accuracy - Percentuale di accuratezza (0-100)
+   * @returns {string} 'easy', 'medium', o 'hard'
+   */
   calculateNextDifficulty: (score, streak, accuracy) => {
     const performanceScore = (score * 0.3) + (streak * 10) + (accuracy * 0.4)
+    // Formula pesata che combina tre metriche di performance (score contribuisce per il 30%, streak per punti fissi, accuracy per il 40%)
 
+    // Soglie per determinare la difficoltà
     if (performanceScore < 50) return 'easy'
     if (performanceScore < 150) return 'medium'
     return 'hard'
   },
 
+  /**
+   * Ottiene il limite di tempo in base alla difficoltà
+   * @param {string} difficulty - Livello di difficoltà
+   * @returns {number} Secondi disponibili per rispondere
+   */
   getTimeLimit: (difficulty) => {
     const limits = { easy: 60, medium: 45, hard: 30 }
     return limits[difficulty] || 60
   },
 
+  /**
+   * Calcola i punti guadagnati per una risposta
+   * @param {string} difficulty - Livello di difficoltà
+   * @param {number} timeRemaining - Secondi rimasti quando si risponde
+   * @param {boolean} isCorrect - Se la risposta è corretta
+   * @returns {number} Punti totali guadagnati
+   */
   getPoints: (difficulty, timeRemaining, isCorrect) => {
-    if (!isCorrect) return 0
+    if (!isCorrect) return 0 // Nessun punto per risposte errate
+
+    // Punti base per difficoltà
     const basePoints = { easy: 10, medium: 25, hard: 50 }
+    // Bonus tempo: più veloce risponde, più punti extra ottiene
     const timeBonus = Math.floor(timeRemaining * 0.5)
     return basePoints[difficulty] + timeBonus
   }
 }
 
+// ============================================================================
+// COMPONENTE PRINCIPALE
+// ============================================================================
+
+/**
+ * Componente React principale che gestisce l'intero gioco
+ */
+
 function App() {
+
+  // ========================================
+  // STATE MANAGEMENT (Stati del componente)
+  // ========================================
+
+  // Stati generali del gioco
   const [gameState, setGameState] = useState('welcome')
+
+  // Statistiche del giocatore
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
   const [level, setLevel] = useState(1)
@@ -100,6 +147,7 @@ function App() {
   const [totalAttempts, setTotalAttempts] = useState(0)
   const [correctAttempts, setCorrectAttempts] = useState(0)
 
+  // Stati del round corrente
   const [currentLog, setCurrentLog] = useState(null)
   const [difficulty, setDifficulty] = useState('easy')
   const [timeRemaining, setTimeRemaining] = useState(60)
@@ -107,56 +155,84 @@ function App() {
   const [selectedMitigation, setSelectedMitigation] = useState(null)
   const [mitreOptions, setMitreOptions] = useState([])
   const [mitigationOptions, setMitigationOptions] = useState([])
+
+  // Stati UI e feedback
   const [feedback, setFeedback] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState(false)
 
+  // Riferimenti
   const timerRef = useRef(null)
   const [isTimerActive, setIsTimerActive] = useState(false)
 
-  // Funzione per usare mock data se l'API fallisce
+  // ========================================
+  // FUNZIONI HELPER
+  // ========================================
+
+  /**
+   * Funzione di fallback che usa dati mock quando l'API non è disponibile
+   * @param {string} difficulty - Livello di difficoltà
+   */
   const useMockData = (difficulty) => {
     console.log('Using mock data as fallback')
+
+    // Seleziona log casuali dai dati mock (soluzione temporanea)
     const logs = mockData.logs[difficulty] || mockData.logs.easy
     const randomLog = logs[Math.floor(Math.random() * logs.length)]
 
+    // Imposta tutti gli stati necessari per giocare offline
     setCurrentLog(randomLog)
     setMitreOptions(mockData.mitreOptions[difficulty] || mockData.mitreOptions.easy)
     setMitigationOptions(mockData.mitigationOptions)
 
+    // Configura timer e avvia il gioco
     const timeLimit = AdaptiveDifficulty.getTimeLimit(difficulty)
     setTimeRemaining(timeLimit)
     setIsTimerActive(true)
     setGameState('playing')
-    setApiError(true)
+    setApiError(true) // Segnala che siamo in modalità offline
   }
 
-  // Start new round - con gestione errori migliorata
+  // ========================================
+  // FUNZIONE PRINCIPALE: AVVIO NUOVO ROUND
+  // ========================================
+
+  /**
+   * Avvia un nuovo round di gioco
+   * Le dipendenze [score, streak, accuracy] fanno sì che la funzione
+   * si aggiorni quando questi valori cambiano
+   */
   const startNewRound = useCallback(async () => {
+    // Mostra indicatore di caricamento
     setIsLoading(true)
     setApiError(false)
 
+    // STEP 1: Calcola la difficoltà adattiva
     const newDifficulty = AdaptiveDifficulty.calculateNextDifficulty(score, streak, accuracy)
     setDifficulty(newDifficulty)
 
     try {
-      console.log('Fetching new log from API...')
+      console.log('Recupero del nuovo registro da API...')
 
+      // STEP 2: Chiamata API al backend Flask
       const response = await axios.post(`${API_URL}/get-log`, {
+        // Payload della richiesta
         difficulty: newDifficulty,
         session_id: SESSION_ID,
         stats: {
           score,
           streak,
           accuracy
-        }
+        } // Invia statistiche per analisi
       }, {
-        timeout: 5000 // 5 secondi di timeout
+        timeout: 5000 // Timeout di 5 secondi per evitare attese infinite
       })
 
-      console.log('API Response:', response.data)
+      console.log('Risposta API:', response.data)
 
+      // STEP 3: Validazione della risposta
       if (response.data && response.data.log) {
+        // Successo: usa i dati dall'API
         setCurrentLog(response.data.log)
         setMitreOptions(response.data.mitre_options || [])
         setMitigationOptions(response.data.mitigation_options || [])
@@ -168,39 +244,58 @@ function App() {
       }
 
     } catch (error) {
+      // STEP 4: Gestione errori - usa dati mock come fallback
       console.error('Error fetching log:', error)
       console.log('Falling back to mock data')
 
-      // Usa mock data come fallback
       useMockData(newDifficulty)
     } finally {
+      // STEP 5: Cleanup - sempre eseguito
       setIsLoading(false)
-      setSelectedMitre(null)
+      setSelectedMitre(null) // Reset selezioni
       setSelectedMitigation(null)
     }
-  }, [score, streak, accuracy])
+  }, [score, streak, accuracy]) // Dipendenze del useCallback
 
-  // Timer effect
+  // ========================================
+  // EFFECT: GESTIONE TIMER
+  // ========================================
+
+  /**
+   * useEffect per gestire il countdown del timer
+   * Si attiva quando timeRemaining o isTimerActive cambiano
+   */
   useEffect(() => {
     if (isTimerActive && timeRemaining > 0) {
+      // Crea un timeout che decrementa il timer dopo 1 secondo
       timerRef.current = setTimeout(() => {
-        setTimeRemaining(prev => prev - 1)
+        setTimeRemaining(prev => prev - 1)  // Decrementa di 1 secondo
       }, 1000)
     } else if (timeRemaining === 0 && isTimerActive) {
-      handleSubmit(true)
+      // Tempo scaduto: invia automaticamente la risposta
+      handleSubmit(true) // true indica che il tempo è scaduto
     }
 
+    // Cleanup: cancella il timeout quando il componente si smonta o quando le dipendenze cambiano
     return () => clearTimeout(timerRef.current)
-  }, [timeRemaining, isTimerActive])
+  }, [timeRemaining, isTimerActive]) // Dipendenze dell'effect
 
-  // Handle submission - con chiamata API o mock
+  // ========================================
+  // FUNZIONE: GESTIONE INVIO RISPOSTA
+  // ========================================
+
+  /**
+   * Gestisce l'invio della risposta dell'utente
+   * @param {boolean} timeExpired - Se true, il tempo è scaduto
+   */
   const handleSubmit = async (timeExpired = false) => {
+    // Ferma il timer
     setIsTimerActive(false)
     setIsLoading(true)
 
     try {
       if (!apiError) {
-        // Prova a validare con l'API
+        // MODALITÀ ONLINE: Valida con l'API
         const response = await axios.post(`${API_URL}/validate`, {
           session_id: SESSION_ID,
           selected_mitre: selectedMitre,
