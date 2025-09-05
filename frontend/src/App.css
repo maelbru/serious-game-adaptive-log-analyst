@@ -1,7 +1,13 @@
+/**
+ * ADAPTIVE LOG ANALYST - STILI CSS
+ * Design moderno con tema dark per ridurre affaticamento visivo
+ * Utilizza gradients, backdrop filters e animazioni per UI accattivante
+ */
+
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+  margin: 0;                  
+  padding: 0;                 
+  box-sizing: border-box; 
 }
 
 body {
@@ -11,7 +17,7 @@ body {
   color: #e2e8f0;
 }
 
-/* Container principale */
+/* CONTAINER PRINCIPALE */
 .game-container {
   max-width: 1400px;
   margin: 0 auto;
@@ -19,12 +25,13 @@ body {
   animation: fadeIn 0.5s ease-in;
 }
 
+/* Keyframe per animazione di entrata */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Header */
+/* HEADER */
 .header {
   background: rgba(30, 41, 59, 0.8);
   backdrop-filter: blur(10px);

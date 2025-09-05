@@ -15,7 +15,7 @@ import json                                 # Per gestione dati JSON
 # ============================================================================
 
 app = Flask(__name__)
-CORS(app) # CRITICO: Abilita CORS per permettere al frontend React di comunicare con Flask
+CORS(app)               # Abilita CORS per permettere al frontend React di comunicare con Flask
 
 # ============================================================================
 # DATABASE MOCK DEI LOG
