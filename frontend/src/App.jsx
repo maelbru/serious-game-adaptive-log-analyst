@@ -308,24 +308,27 @@ function App() {
 
         const validationResult = response.data
 
-        // Update stats
+        // Aggiorna le statistiche basandosi sulla risposta del server
         setScore(prev => prev + validationResult.points)
         setTotalAttempts(prev => prev + 1)
 
         if (validationResult.is_correct) {
-          setStreak(prev => prev + 1)
+          setStreak(prev => prev + 1) // Incrementa serie
           setCorrectAttempts(prev => prev + 1)
         } else {
-          setStreak(0)
+          setStreak(0) // Reset serie se sbaglia
         }
 
+        // Ricalcola accuratezza (percentuale di risposte corrette)
         const newAccuracy = Math.round(((correctAttempts + (validationResult.is_correct ? 1 : 0)) / (totalAttempts + 1)) * 100)
         setAccuracy(newAccuracy)
 
+        // Controlla avanzamento di livello (ogni 100 punti)
         if (score + validationResult.points >= level * 100) {
           setLevel(prev => prev + 1)
         }
 
+        // Prepara oggetto feedback per mostrare i risultati
         setFeedback({
           isCorrect: validationResult.is_correct,
           timeExpired,
@@ -338,12 +341,13 @@ function App() {
         })
 
       } else {
-        // Validazione mock locale
+        // MODALITÀ OFFLINE: Validazione mock locale
         console.log('Using mock validation')
 
-        // Simulazione di validazione (sempre corretta per test)
+        // Simulazione semplificata (per test)
         const points = timeExpired ? 0 : AdaptiveDifficulty.getPoints(difficulty, timeRemaining, true)
 
+        // Aggiorna statistiche localmente
         setScore(prev => prev + points)
         setTotalAttempts(prev => prev + 1)
         setStreak(prev => prev + 1)
@@ -352,6 +356,7 @@ function App() {
         const newAccuracy = Math.round(((correctAttempts + 1) / (totalAttempts + 1)) * 100)
         setAccuracy(newAccuracy)
 
+        // Feedback mock
         setFeedback({
           isCorrect: true,
           timeExpired,
@@ -365,9 +370,9 @@ function App() {
       }
 
     } catch (error) {
+      // Gestione errori di validazione
       console.error('Validation error:', error)
 
-      // Fallback validation
       setFeedback({
         isCorrect: false,
         timeExpired,
@@ -380,11 +385,17 @@ function App() {
       })
     } finally {
       setIsLoading(false)
-      setGameState('feedback')
+      setGameState('feedback') // Passa alla schermata di feedback
     }
   }
 
-  // Welcome Screen
+  // ========================================
+  // RENDERING CONDIZIONALE
+  // ========================================
+
+  /**
+   * SCHERMATA DI BENVENUTO
+   */
   if (gameState === 'welcome') {
     return (
       <div className="welcome-screen">
@@ -392,9 +403,10 @@ function App() {
           <div className="welcome-logo">🛡️</div>
           <h1 className="welcome-title">Adaptive Log Analyst</h1>
           <p className="welcome-subtitle">
-            Test your cybersecurity skills by analyzing real-world security logs.
-            Identify MITRE ATT&CK techniques and choose the best mitigation strategies.
+            Metti alla prova le tue competenze in materia di sicurezza informatica analizzando i log di sicurezza reali. Identifica le tecniche MITRE ATT&CK e scegli le migliori strategie di mitigazione.
           </p>
+
+          {/* Avviso modalità offline se API non disponibile */}
           {apiError && (
             <div style={{
               background: 'rgba(251, 191, 36, 0.1)',
@@ -404,13 +416,13 @@ function App() {
               marginBottom: '20px',
               color: '#fbbf24'
             }}>
-              ⚠️ Running in offline mode (API not available)
+              ⚠️ Esecuzione in modalità offline (API non disponibile)
             </div>
           )}
           <button
             className="start-button"
             onClick={startNewRound}
-            disabled={isLoading}
+            disabled={isLoading} // Disabilita durante caricamento
           >
             {isLoading ? 'Loading...' : 'Start Game'}
           </button>
@@ -419,44 +431,58 @@ function App() {
     )
   }
 
-  // Feedback Modal
+  /**
+   * MODAL DI FEEDBACK
+   * Mostrato dopo ogni risposta per dare feedback all'utente
+   */
   if (gameState === 'feedback' && feedback) {
     return (
       <div className="modal-overlay">
         <div className="modal">
           <div className={`modal-icon ${feedback.isCorrect ? 'success' : 'error'}`}>
+            {/* Icona successo/errore */}
             {feedback.isCorrect ? '✓' : '✗'}
           </div>
+
+          {/* Titolo del risultato */}
           <h2 className="modal-title">
-            {feedback.timeExpired ? 'Time Expired!' :
-              feedback.isCorrect ? 'Correct!' : 'Incorrect'}
+            {feedback.timeExpired ? 'Tempo scaduto!' :
+              feedback.isCorrect ? 'Corretta!' : 'Errata!'}
           </h2>
+
+          {/* Messaggio principale */}
           <p className="modal-message">
             {feedback.isCorrect ?
-              `Excellent analysis! You earned ${feedback.points} points.` :
-              'Let\'s review the correct answer.'}
+              `Ottima analisi! Hai guadagnato ${feedback.points} punti.` :
+              'Rivediamo la risposta corretta.'}
           </p>
+
+          {/* Dettagli della risposta */}
           <div className="modal-details">
             <div className="detail-item">
-              <span className="detail-label">Correct MITRE:</span>
+              <span className="detail-label">Tecnica MITRE corretta:</span>
               <span className="detail-value">{feedback.correctMitre}</span>
             </div>
             <div className="detail-item">
-              <span className="detail-label">Your MITRE:</span>
+              <span className="detail-label">Tecnica MITRE scelta:</span>
               <span className="detail-value">
                 {feedback.selectedMitre || 'Not selected'}
               </span>
             </div>
             <div className="detail-item">
-              <span className="detail-label">Points Earned:</span>
+              <span className="detail-label">Punti guadagnati:</span>
               <span className="detail-value">{feedback.points}</span>
             </div>
           </div>
+
+          {/* Spiegazione educativa */}
           {feedback.explanation && (
             <p className="modal-message" style={{ fontSize: '14px', fontStyle: 'italic', marginTop: '15px' }}>
               {feedback.explanation}
             </p>
           )}
+
+          {/* Bottone per prossimo round */}
           <button
             className="modal-button"
             onClick={startNewRound}
@@ -469,15 +495,20 @@ function App() {
     )
   }
 
-  // Main Game Screen
+  /**
+   * SCHERMATA DI GIOCO PRINCIPALE
+   * L'interfaccia principale dove l'utente analizza i log
+   */
   return (
     <div className="game-container">
       <header className="header">
+        {/* Logo e nome del gioco */}
         <div className="logo">
           <div className="logo-icon">🛡️</div>
           <div className="logo-text">Adaptive Log Analyst</div>
         </div>
 
+        {/* Barra delle statistiche in tempo reale */}
         <div className="stats-bar">
           <div className="stat-item">
             <span className="stat-label">Score</span>
@@ -497,6 +528,7 @@ function App() {
           </div>
         </div>
 
+        {/* Indicatore modalità offline */}
         {apiError && (
           <div style={{
             padding: '8px 16px',
@@ -511,22 +543,30 @@ function App() {
         )}
       </header>
 
+      {/* AREA DI GIOCO divisa in due colonne */}
       <div className="game-content">
+
+        {/* COLONNA SINISTRA: Log da analizzare */}
         <div className="log-panel">
           <h2 className="panel-title">📋 Security Log Analysis</h2>
 
+          {/* Timer countdown con cambio colore dinamico 
+          (Rosso sotto i 10 secondi, Giallo sotto i 20 secondi) */}
           <div className="timer-container">
             <div className={`timer ${timeRemaining <= 10 ? 'critical' : timeRemaining <= 20 ? 'warning' : ''}`}>
               {timeRemaining}s
             </div>
           </div>
 
+          {/* Mostra il log se disponibile */}
           {currentLog && (
             <>
+              {/* Log grezzo in formato monospace */}
               <div className="log-content">
                 <pre>{currentLog.raw}</pre>
               </div>
 
+              {/* Metadata del log in griglia */}
               <div className="log-metadata">
                 <div className="meta-item">
                   <span className="meta-label">Source:</span>
@@ -549,9 +589,11 @@ function App() {
           )}
         </div>
 
+        {/* COLONNA DESTRA: Interfaccia di analisi */}
         <div className="analysis-panel">
           <h2 className="panel-title">🎯 Your Analysis</h2>
-
+          
+          {/* SEZIONE 1: Selezione tecnica MITRE */}
           <div className="mitre-selection">
             <h3 className="selection-title">📊 Select MITRE ATT&CK Technique</h3>
             <div className="mitre-options">
