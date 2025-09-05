@@ -1,29 +1,49 @@
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-import random
-from datetime import datetime
-import json
+"""
+ADAPTIVE LOG ANALYST - BACKEND FLASK
+Server API REST che gestisce la logica di gioco e la validazione delle risposte
+Simula le funzionalità di ByteBoo per l'analisi dei log di sicurezza
+"""
+
+from flask import Flask, jsonify, request   # Framework web e utilities
+from flask_cors import CORS                 # Cross-Origin Resource Sharing per permettere chiamate dal frontend
+import random                               # Per selezione casuale dei log
+from datetime import datetime               # Per timestamp
+import json                                 # Per gestione dati JSON
+
+# ============================================================================
+# INIZIALIZZAZIONE FLASK
+# ============================================================================
 
 app = Flask(__name__)
-CORS(app)
+CORS(app) # CRITICO: Abilita CORS per permettere al frontend React di comunicare con Flask
 
-# Mock database for logs
+# ============================================================================
+# DATABASE MOCK DEI LOG
+# ============================================================================
+
+"""
+Simuliamo un database con dizionari Python
+Ogni log rappresenta un evento di sicurezza reale che potrebbe apparire in un SIEM
+"""
+
 LOGS_DATABASE = {
     'easy': [
         {
             'id': 1,
+            # Log grezzo come apparirebbe nel sistema
             'raw': '2024-03-15 14:23:45 [ALERT] Failed login attempt from IP 192.168.1.105 - User: admin - Attempts: 5',
-            'source': 'SSH Server',
-            'severity': 'Medium',
+            'source': 'SSH Server',                     # Sistema che ha generato il log
+            'severity': 'Medium',                       # Livello di gravità dell'evento
             'timestamp': '2024-03-15 14:23:45',
-            'correctMitre': 'T1110',
-            'correctMitigation': 'implement_mfa',
-            'metadata': {
+            'correctMitre': 'T1110',                    # Tecnica MITRE corretta (Brute Force)
+            'correctMitigation': 'implement_mfa',       # Mitigazione corretta
+            'metadata': { # Dati strutturati estratti dal log
                 'ip': '192.168.1.105',
                 'user': 'admin',
                 'service': 'SSH',
                 'attempts': 5
             },
+            # Spiegazione educativa per l'utente
             'explanation': 'Failed login attempts indicate a brute force attack. The attacker is trying multiple passwords to gain unauthorized access.'
         },
         {
@@ -32,8 +52,8 @@ LOGS_DATABASE = {
             'source': 'IDS/IPS',
             'severity': 'Medium',
             'timestamp': '2024-03-15 10:15:23',
-            'correctMitre': 'T1046',
-            'correctMitigation': 'block_ip',
+            'correctMitre': 'T1046',                    # Tecnica MITRE corretta (Network Service Discovery)
+            'correctMitigation': 'block_ip',            
             'metadata': {
                 'ip': '10.0.0.50',
                 'ports': '1-1000',
@@ -50,13 +70,13 @@ LOGS_DATABASE = {
             'source': 'EDR System',
             'severity': 'High',
             'timestamp': '2024-03-15 16:45:12',
-            'correctMitre': 'T1059.001',
+            'correctMitre': 'T1059.001',                 # Tecnica MITRE corretta (PowerShell execution)
             'correctMitigation': 'isolate_host',
             'metadata': {
                 'process': 'powershell.exe',
-                'flags': '-NoP -NonI -W Hidden',
+                'flags': '-NoP -NonI -W Hidden',         # Flags sospetti che bypassano policy
                 'encoding': 'Base64',
-                'parent': 'winword.exe'
+                'parent': 'winword.exe'                  # Word che lancia PowerShell = molto sospetto
             },
             'explanation': 'Encoded PowerShell commands are often used by attackers to evade detection and execute malicious payloads.'
         },
@@ -66,7 +86,7 @@ LOGS_DATABASE = {
             'source': 'Sysmon',
             'severity': 'High',
             'timestamp': '2024-03-15 09:30:45',
-            'correctMitre': 'T1547.001',
+            'correctMitre': 'T1547.001',                 # Tecnica MITRE corretta (Registry Run Keys (Persistence))
             'correctMitigation': 'remove_persistence',
             'metadata': {
                 'registry': 'HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
@@ -84,11 +104,11 @@ LOGS_DATABASE = {
             'source': 'EDR System',
             'severity': 'Critical',
             'timestamp': '2024-03-15 22:10:33',
-            'correctMitre': 'T1003.001',
+            'correctMitre': 'T1003.001',                   # Tecnica MITRE corretta (LSASS Memory (Credential Dumping))
             'correctMitigation': 'forensic_analysis',
             'metadata': {
                 'source_process': 'svchost.exe',
-                'target_process': 'lsass.exe',
+                'target_process': 'lsass.exe',             # LSASS contiene credenziali in memoria
                 'technique': 'Process Injection',
                 'risk': 'Credential Dumping'
             },
@@ -100,12 +120,12 @@ LOGS_DATABASE = {
             'source': 'Network Monitor',
             'severity': 'Critical',
             'timestamp': '2024-03-15 03:25:18',
-            'correctMitre': 'T1071.001',
+            'correctMitre': 'T1071.001',                    # Tecnica MITRE corretta (Web Protocols (C&C))
             'correctMitigation': 'block_c2',
             'metadata': {
                 'destination': '185.220.101.45:443',
-                'pattern': 'Beaconing',
-                'jitter': '10%',
+                'pattern': 'Beaconing',                     # Pattern periodico = C2
+                'jitter': '10%',                            # Variazione temporale per evadere detection
                 'user_agent': 'Mozilla/5.0'
             },
             'explanation': 'Periodic beaconing to external IPs indicates active command and control communication.'
@@ -113,9 +133,22 @@ LOGS_DATABASE = {
     ]
 }
 
+# ============================================================================
+# DATABASE TECNICHE MITRE ATT&CK
+# ============================================================================
+
+"""
+Framework MITRE ATT&CK: catalogo di tecniche usate dagli attaccanti
+Ogni tecnica ha un ID univoco (es. T1110) e appartiene a una tattica
+"""
+
 MITRE_OPTIONS = {
     'easy': [
-        {'id': 'T1110', 'name': 'Brute Force', 'tactic': 'Credential Access'},
+        {
+            'id': 'T1110',                  # ID unico della tecnica
+            'name': 'Brute Force',          # Nome descrittivo
+            'tactic': 'Credential Access'   # Fase dell'attacco (tattica)
+        },
         {'id': 'T1046', 'name': 'Network Service Discovery', 'tactic': 'Discovery'},
         {'id': 'T1090', 'name': 'Proxy', 'tactic': 'Command and Control'},
         {'id': 'T1078', 'name': 'Valid Accounts', 'tactic': 'Initial Access'}
@@ -134,6 +167,15 @@ MITRE_OPTIONS = {
     ]
 }
 
+# ============================================================================
+# DATABASE STRATEGIE DI MITIGAZIONE
+# ============================================================================
+
+"""
+Ogni mitigazione rappresenta un'azione di risposta a un incidente
+In un SOC reale, queste sarebbero le azioni del playbook di incident response
+"""
+
 MITIGATION_OPTIONS = {
     'block_ip': {'text': 'Block IP address at firewall level', 'icon': '🔒'},
     'implement_mfa': {'text': 'Implement Multi-Factor Authentication', 'icon': '🔐'},
@@ -143,41 +185,105 @@ MITIGATION_OPTIONS = {
     'block_c2': {'text': 'Block C2 communication channels', 'icon': '⛔'}
 }
 
-# Store user sessions
+# ============================================================================
+# GESTIONE SESSIONI UTENTE
+# ============================================================================
+
+"""
+Dizionario per memorizzare le sessioni attive
+Struttura: {session_id: {dati_sessione}}
+"""
 user_sessions = {}
 
+# ============================================================================
+# FUNZIONI HELPER
+# ============================================================================
+
 def calculate_difficulty(score, streak, accuracy):
-    """Calculate next difficulty based on performance"""
+    """
+    Calcola il livello di difficoltà appropriato basandosi sulle performance
+    
+    Args:
+        score (int): Punteggio totale del giocatore
+        streak (int): Serie di risposte corrette consecutive
+        accuracy (float): Percentuale di accuratezza (0-100)
+    
+    Returns:
+        str: 'easy', 'medium', o 'hard'
+    
+    Logica:
+        - Formula pesata che combina tre metriche
+        - Score contribuisce 30%, streak aggiunge punti fissi, accuracy 40%
+        - Soglie predefinite determinano il livello
+    """
+    # Calcolo del punteggio di performance complessivo
     performance_score = (score * 0.3) + (streak * 10) + (accuracy * 0.4)
     
+    # Determinazione del livello basata su soglie
     if performance_score < 50:
-        return 'easy'
+        return 'easy'                   # Principiante: necessita log più semplici
     elif performance_score < 150:
-        return 'medium'
+        return 'medium'                 # Intermedio: può gestire complessità moderata
     else:
-        return 'hard'
+        return 'hard'                   # Esperto: pronto per sfide avanzate
+
+# ============================================================================
+# ENDPOINTS API REST
+# ============================================================================
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
+    """
+    Endpoint di health check per verificare che il server sia attivo
+    
+    Returns:
+        JSON con status e timestamp
+    
+    Utilizzato per:
+        - Monitoring del servizio
+        - Verifiche di connettività dal frontend
+    """
     return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
 
 @app.route('/api/get-log', methods=['POST'])
 def get_log():
-    """Get a new log for analysis"""
+    """
+    Endpoint principale per ottenere un nuovo log da analizzare
+    
+    Request Body:
+        - difficulty: livello di difficoltà richiesto
+        - session_id: identificatore della sessione
+        - stats: statistiche correnti del giocatore
+    
+    Returns:
+        JSON con:
+        - log: evento di sicurezza da analizzare (senza risposte corrette)
+        - mitre_options: lista di tecniche MITRE tra cui scegliere
+        - mitigation_options: lista di mitigazioni disponibili
+        - time_limit: tempo disponibile in secondi
+    
+    Processo:
+        1. Riceve difficoltà e statistiche
+        2. Seleziona un log casuale appropriato
+        3. Mescola le opzioni per rendere più difficile
+        4. Salva la risposta corretta in sessione
+        5. Ritorna i dati senza le soluzioni
+    """
+    # Estrazione dati dalla richiesta
     data = request.json
     difficulty = data.get('difficulty', 'easy')
     session_id = data.get('session_id', 'default')
     
-    # Get random log for difficulty
+    # STEP 1: Selezione casuale di un log per la difficoltà richiesta
     logs = LOGS_DATABASE.get(difficulty, LOGS_DATABASE['easy'])
-    log = random.choice(logs)
+    log = random.choice(logs) 
     
-    # Get MITRE options (shuffled)
+    # STEP 2: Preparazione opzioni MITRE (mescolate per difficoltà)
     mitre_options = MITRE_OPTIONS.get(difficulty, MITRE_OPTIONS['easy']).copy()
-    random.shuffle(mitre_options)
+    random.shuffle(mitre_options) # Mescola per evitare pattern prevedibili
     
-    # Store correct answer in session
+    # STEP 3: Salvataggio risposte corrette in sessione (server-side)
+    # Questo previene cheating - le risposte non sono mai inviate al client
     if session_id not in user_sessions:
         user_sessions[session_id] = {}
     
@@ -185,7 +291,7 @@ def get_log():
     user_sessions[session_id]['correct_mitre'] = log['correctMitre']
     user_sessions[session_id]['correct_mitigation'] = log['correctMitigation']
     
-    # Return log without correct answers
+    # STEP 4: Preparazione risposta (senza soluzioni)
     response_log = {
         'id': log['id'],
         'raw': log['raw'],
@@ -193,6 +299,7 @@ def get_log():
         'severity': log['severity'],
         'timestamp': log['timestamp'],
         'metadata': log['metadata']
+        # NOTA: correctMitre e correctMitigation NON sono inclusi
     }
     
     return jsonify({
@@ -204,7 +311,32 @@ def get_log():
 
 @app.route('/api/validate', methods=['POST'])
 def validate_answer():
-    """Validate user's answer"""
+    """
+    Endpoint per validare la risposta dell'utente
+    
+    Request Body:
+        - session_id: identificatore sessione
+        - selected_mitre: tecnica MITRE selezionata dall'utente
+        - selected_mitigation: mitigazione selezionata
+        - time_remaining: secondi rimasti quando ha risposto
+        - difficulty: livello di difficoltà corrente
+    
+    Returns:
+        JSON con:
+        - is_correct: se la risposta completa è corretta
+        - is_mitre_correct: se la tecnica MITRE è corretta
+        - is_mitigation_correct: se la mitigazione è corretta
+        - correct_mitre: la risposta corretta MITRE
+        - correct_mitigation: la mitigazione corretta
+        - points: punti guadagnati
+        - explanation: spiegazione educativa
+    
+    Sistema di punteggio:
+        - Punti base per difficoltà (easy:10, medium:25, hard:50)
+        - Bonus tempo: 0.5 punti per secondo rimanente
+        - 0 punti se sbagliato o tempo scaduto
+    """
+    # Estrazione dati dalla richiesta
     data = request.json
     session_id = data.get('session_id', 'default')
     selected_mitre = data.get('selected_mitre')
@@ -212,32 +344,37 @@ def validate_answer():
     time_remaining = data.get('time_remaining', 0)
     difficulty = data.get('difficulty', 'easy')
     
-    # Get correct answers from session
+    # STEP 1: Recupero risposte corrette dalla sessione
     session = user_sessions.get(session_id, {})
     correct_mitre = session.get('correct_mitre')
     correct_mitigation = session.get('correct_mitigation')
     
-    # Check if answers are correct
+    # STEP 2: Validazione delle risposte
     is_mitre_correct = selected_mitre == correct_mitre
     is_mitigation_correct = selected_mitigation == correct_mitigation
     is_fully_correct = is_mitre_correct and is_mitigation_correct
     
-    # Calculate points
+    # STEP 3: Calcolo punti
     points = 0
     if is_fully_correct:
+        # Punti base per difficoltà
         base_points = {'easy': 10, 'medium': 25, 'hard': 50}
+        # Bonus velocità: premia risposte rapide
         time_bonus = int(time_remaining * 0.5)
         points = base_points.get(difficulty, 10) + time_bonus
     
-    # Get explanation
+    # STEP 4: Recupero spiegazione educativa
     log_id = session.get('current_log')
     explanation = None
+
+    # Cerca il log nel database per ottenere la spiegazione
     for diff_level in LOGS_DATABASE.values():
         for log in diff_level:
             if log['id'] == log_id:
                 explanation = log.get('explanation', 'Analysis complete.')
                 break
     
+    # STEP 6: Ritorno risultati completi per feedback
     return jsonify({
         'is_correct': is_fully_correct,
         'is_mitre_correct': is_mitre_correct,
@@ -252,12 +389,29 @@ def validate_answer():
 
 @app.route('/api/adapt-difficulty', methods=['POST'])
 def adapt_difficulty():
-    """Calculate adaptive difficulty based on performance"""
+    """
+    Endpoint per calcolare la difficoltà adattiva
+    
+    Request Body:
+        - score: punteggio corrente
+        - streak: serie di risposte corrette
+        - accuracy: percentuale di accuratezza
+    
+    Returns:
+        JSON con:
+        - next_difficulty: prossimo livello suggerito
+        - reasoning: spiegazione del calcolo
+    
+    Utilizzato per:
+        - Adattamento dinamico della difficoltà
+        - Personalizzazione dell'esperienza di apprendimento
+    """
     data = request.json
     score = data.get('score', 0)
     streak = data.get('streak', 0)
     accuracy = data.get('accuracy', 100)
     
+    # Usa la funzione helper per calcolare
     next_difficulty = calculate_difficulty(score, streak, accuracy)
     
     return jsonify({
@@ -267,7 +421,17 @@ def adapt_difficulty():
 
 @app.route('/api/leaderboard', methods=['GET'])
 def get_leaderboard():
-    """Get top scores (mock data for now)"""
+    """
+    Endpoint per ottenere la classifica dei migliori giocatori
+    
+    Returns:
+        JSON con lista dei top player
+    
+    Note:
+        - Attualmente ritorna dati mock
+        - In produzione si collegherebbe a un database
+    """
+    # Mock data per dimostrazione
     mock_leaderboard = [
         {'rank': 1, 'name': 'CyberDefender', 'score': 1250, 'accuracy': 95},
         {'rank': 2, 'name': 'LogMaster', 'score': 1100, 'accuracy': 92},
@@ -280,21 +444,54 @@ def get_leaderboard():
 
 @app.route('/api/statistics', methods=['POST'])
 def get_statistics():
-    """Get user statistics"""
+    """
+    Endpoint per ottenere statistiche dettagliate dell'utente
+    
+    Request Body:
+        - session_id: identificatore sessione
+    
+    Returns:
+        JSON con statistiche complete del giocatore
+    
+    Utilizzato per:
+        - Dashboard personale
+        - Tracking progressi
+        - Achievements
+    """
     data = request.json
     session_id = data.get('session_id', 'default')
     
-    # Mock statistics for now
+     # Mock statistics - in produzione verrebbero dal database
     stats = {
         'total_games': 15,
         'total_score': 850,
         'best_streak': 7,
         'average_accuracy': 85.5,
         'favorite_difficulty': 'medium',
-        'achievements': ['First Log', 'Streak Master', 'Quick Analyzer']
+        'achievements': [
+            'First Log',       # Prima analisi completata
+            'Streak Master',   # 5+ risposte corrette di fila
+            'Quick Analyzer'   # Risposta in meno di 10 secondi
+        ]
     }
     
     return jsonify(stats)
 
+# ============================================================================
+# ENTRY POINT
+# ============================================================================
+
 if __name__ == '__main__':
+    """
+    Avvia il server Flask in modalità debug
+    
+    Configurazioni:
+        - debug=True: ricarica automatica quando il codice cambia
+        - port=5000: porta standard Flask
+    
+    In produzione:
+        - Usare un WSGI server come Gunicorn
+        - Disabilitare debug mode
+        - Configurare HTTPS
+    """
     app.run(debug=True, port=5000)
