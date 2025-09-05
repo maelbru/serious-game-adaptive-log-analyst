@@ -385,25 +385,13 @@ Permesso di uso, copia, modifica e distribuzione concesso.
 ## 👥 **Team & Credits**
 
 ### **Core Developers**
-- **[Il Tuo Nome]** - *Project Lead & Backend Architecture*
-- **[Altri Contributors]** - *Frontend Development*
+- **[Maelbru]** - *Project Lead, Frontend Development and Backend Architecture*
 
 ### **Special Thanks**
 - **MITRE Corporation** - ATT&CK Framework
 - **Flask Community** - Web framework
 - **React Team** - Frontend library
 - **Cybersecurity Community** - Domain expertise e feedback
-
----
-
-## 📞 **Support & Contact**
-
-- 🐛 **Bug Reports:** [GitHub Issues](https://github.com/your-username/adaptive-log-analyst/issues)
-- 💬 **Discussions:** [GitHub Discussions](https://github.com/your-username/adaptive-log-analyst/discussions)
-- 📧 **Email:** your-email@domain.com
-- 🐦 **Twitter:** [@your-handle](https://twitter.com/your-handle)
-
----
 
 <div align="center">
 
