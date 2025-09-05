@@ -592,7 +592,7 @@ function App() {
         {/* COLONNA DESTRA: Interfaccia di analisi */}
         <div className="analysis-panel">
           <h2 className="panel-title">🎯 Your Analysis</h2>
-          
+
           {/* SEZIONE 1: Selezione tecnica MITRE */}
           <div className="mitre-selection">
             <h3 className="selection-title">📊 Select MITRE ATT&CK Technique</h3>
@@ -610,6 +610,7 @@ function App() {
             </div>
           </div>
 
+          {/* SEZIONE 2: Selezione strategia di mitigazione */}
           <div className="mitigation-selection">
             <h3 className="selection-title">🛡️ Choose Mitigation Strategy</h3>
             <div className="mitigation-options">
@@ -619,12 +620,14 @@ function App() {
                   className={`mitigation-option ${selectedMitigation === key ? 'selected' : ''}`}
                   onClick={() => setSelectedMitigation(key)}
                 >
+                  {/* Trasforma snake_case in testo leggibile */}
                   <div className="mitigation-text">{key.replace(/_/g, ' ').toUpperCase()}</div>
                 </div>
               ))}
             </div>
           </div>
 
+          {/* BOTTONE INVIO - disabilitato se mancano selezioni */}
           <button
             className="submit-button"
             onClick={() => handleSubmit(false)}
@@ -638,4 +641,5 @@ function App() {
   )
 }
 
+// Esporta il componente per l'uso in altri file
 export default App
